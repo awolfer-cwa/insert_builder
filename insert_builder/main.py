@@ -81,7 +81,14 @@ def run() -> None:
         logger.info("-" * 50)
         logger.info("Insert Builder started")
 
-        close_orphaned_documents()
+        try:
+            close_orphaned_documents()
+        except Exception as e:
+            # Best-effort housekeeping — a missing/not-yet-installed bridge
+            # must not block the DB-side work below. Confirmed needed by a
+            # real run on production-bak where InDesign/the bridge wasn't
+            # set up yet: this used to abort the entire run right here.
+            logger.warning("Could not clean up orphaned InDesign documents: %s", e)
 
         provision_engine = get_engine(settings)
         with Session(provision_engine) as provision_session:
