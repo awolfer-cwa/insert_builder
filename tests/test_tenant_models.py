@@ -43,7 +43,7 @@ def _build_fixture(session):
     status = TblPrelimOrderStatus(iId=1, StatusTypeId=1)
     prelim = TblPrelimOrder(OrderId=1, CurrentStatusId=1)
 
-    distribution = TblDistribution(DistributionID=1, EditionID=1, Name="Dist 1", DistributionName="Dist1", ReadyToRun=True)
+    distribution = TblDistribution(DistributionID=1, EditionID=1, Name="Dist 1", ReadyToRun=True)
     regional_distribution = TblRegionalDistribution(DistributionID=1, RegionID=1)
 
     sub = TblSubdistribution(iSubDistributionID=1, EditionID=1, RegionID=1, SubDistributionName="Sub 1", ReadyToRun=True)

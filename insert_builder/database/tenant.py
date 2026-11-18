@@ -161,9 +161,15 @@ class TblDistribution(Base):
     DistributionID = Column(Integer, primary_key=True)
     EditionID = Column(Integer, ForeignKey("tblEdition.EditionID"))
     Name = Column(String)
-    DistributionName = Column(String)
     ReadyToRun = Column(Boolean, default=False)
     InDesignCreateDate = Column(DateTime, nullable=True)
+    # No DistributionName column — confirmed against the real schema
+    # (inspect_schema.py, 2026-11-19). The Ruby original's
+    # journal_builder.rb#retrieve_template referenced one anyway (a third
+    # bug in that file, same copy-paste-from-handbook pattern as the other
+    # two — almost certainly meant to mirror tblSubDistribution's real
+    # SubDistributionName column). Fixed here to use Name instead of
+    # carrying the bug forward.
 
     edition = relationship("TblEdition")
 

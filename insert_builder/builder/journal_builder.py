@@ -90,7 +90,7 @@ def _retrieve_template(local_fs, distribution, scratch_dir: Path) -> Path | None
     """Direct port of journal_builder.rb's second (live) retrieve_template —
     the first definition in that file is dead code, silently overwritten by
     Ruby's method redefinition, and not ported here."""
-    template_file = f"Ad_Insert_{distribution.DistributionName}.indt"
+    template_file = f"Ad_Insert_{distribution.Name}.indt"
     publication_name = distribution.edition.publication.Name
 
     remote_path = f"CarmaProduction/Print Ready/{publication_name}/Templates/Alternate Insert Templates"

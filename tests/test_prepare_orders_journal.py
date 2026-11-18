@@ -21,7 +21,7 @@ def _base_fixture(session):
             StartingPageXPos="0", StartingPageYPos="0", InsertSpacingX="5", InsertSpacingY="5",
         ),
         TblAdvertisementSize(AdvertisementSizeID=1, SizeName="Quarter Page", Units="mm", AdvertisementSizeDimensionID=1),
-        TblDistribution(DistributionID=1, EditionID=1, Name="Dist 1", DistributionName="Dist1", ReadyToRun=True),
+        TblDistribution(DistributionID=1, EditionID=1, Name="Dist 1", ReadyToRun=True),
         TblRegionalDistribution(DistributionID=1, RegionID=1),
     ])
     session.commit()
