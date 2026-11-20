@@ -21,13 +21,16 @@ def get_filler_catalog(session, local_fs) -> list[dict]:
     publication, so this doesn't filter by publication. Worth confirming
     that's actually correct once there's a real template to check against."""
     catalog = []
-    for ad_size in session.query(TblAdvertisementSize).all():
+    excluded_count = 0
+    all_sizes = session.query(TblAdvertisementSize).all()
+    for ad_size in all_sizes:
         dimension = ad_size.dimension
         if dimension is None:
+            excluded_count += 1
             continue
         filler_path = _find_filler_image(local_fs, ad_size.SizeName)
         if filler_path is None:
-            logger.debug("No Safety Insert filler found for size '%s' — excluded from catalog", ad_size.SizeName)
+            excluded_count += 1
             continue
         catalog.append({
             "size_name": ad_size.SizeName,
@@ -42,7 +45,12 @@ def get_filler_catalog(session, local_fs) -> list[dict]:
     # ads before smaller ones (TblAdvertisementSize.Units DESC in the
     # original order-selection query).
     catalog.sort(key=lambda c: c["width"] * c["height"], reverse=True)
-    logger.info("Built filler catalog with %d usable size(s)", len(catalog))
+    # One summary line, not one per excluded size — that was producing
+    # hundreds of DEBUG lines per build and burying real signal.
+    logger.info(
+        "Built filler catalog with %d usable size(s) (%d of %d sizes had no matching Safety Insert image)",
+        len(catalog), excluded_count, len(all_sizes),
+    )
     return catalog
 
 
