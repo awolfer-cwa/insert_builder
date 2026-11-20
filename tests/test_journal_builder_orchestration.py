@@ -12,7 +12,7 @@ from insert_builder.builder import journal_builder
 def _fixture(session):
     session.add_all([
         TblPublicationFormat(iID=1, StoreByAdSize=False),
-        TblPublicationFormatSize(iID=1, PublicationFormatID=1, PrintWidth="210", PrintHeight="297"),
+        TblPublicationFormatSize(PublicationFormatSizeID=1, PublicationFormatID=1, PrintWidth=210, PrintHeight=297),
         TblPublication(PublicationID=1, Name="Herald Sun", PublicationFormatID=1),
         TblEdition(EditionID=1, PublicationID=1, Name="Tuesday Edition"),
         TblDistribution(DistributionID=1, EditionID=1, Name="Dist 1", ReadyToRun=True),

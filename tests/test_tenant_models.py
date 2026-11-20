@@ -24,7 +24,7 @@ from insert_builder.database.tenant import (
 
 def _build_fixture(session):
     fmt = TblPublicationFormat(iID=1, StoreByAdSize=False)
-    fmt_size = TblPublicationFormatSize(iID=1, PublicationFormatID=1, PrintWidth="210", PrintHeight="297")
+    fmt_size = TblPublicationFormatSize(PublicationFormatSizeID=1, PublicationFormatID=1, PrintWidth=210, PrintHeight=297)
     pub = TblPublication(PublicationID=1, Name="Herald Sun", PublicationFormatID=1)
     edition = TblEdition(EditionID=1, PublicationID=1, Name="Tuesday Edition")
     region = TblRegion(RegionID=1, Name="Nationwide")
@@ -95,8 +95,8 @@ def test_publication_resolves_format_size_through_publication_format(tenant_sess
     _build_fixture(tenant_session)
     pub = tenant_session.get(TblPublication, 1)
 
-    assert pub.publication_format_size.PrintWidth == "210"
-    assert pub.publication_format_size.PrintHeight == "297"
+    assert pub.publication_format_size.PrintWidth == 210
+    assert pub.publication_format_size.PrintHeight == 297
 
 
 def test_distribution_resolves_publication_through_edition(tenant_session):

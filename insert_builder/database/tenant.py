@@ -87,11 +87,14 @@ class TblOrderRegion(Base):
 class TblPublicationFormatSize(Base):
     __tablename__ = "tblPublicationFormatSize"
     # Primary key name is unverified against the real schema — assumed
-    # consistent with tblPublicationFormat's own iID convention below.
-    iID = Column(Integer, primary_key=True)
+    # Confirmed against production via tools/inspect_format_size.py
+    # (2026-11-20) — was wrongly guessed as "iID" to match the sibling
+    # table's convention. PrintWidth/PrintHeight are real INTEGER columns
+    # here, unlike tblAdvertismentSizeDimension's text-stored equivalents.
+    PublicationFormatSizeID = Column(Integer, primary_key=True)
     PublicationFormatID = Column(Integer, ForeignKey("tblPublicationFormat.iID"))
-    PrintWidth = Column(String)
-    PrintHeight = Column(String)
+    PrintWidth = Column(Integer)
+    PrintHeight = Column(Integer)
 
 
 class TblPublicationFormat(Base):
