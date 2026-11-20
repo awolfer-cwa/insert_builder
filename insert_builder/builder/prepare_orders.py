@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from sqlalchemy import text, or_, and_
+from sqlalchemy import text, or_, and_, update
 from sqlalchemy.orm import Session
 from insert_builder.database.tenant import (
     TblOrder,
@@ -15,6 +15,19 @@ from insert_builder.database.tenant import (
 from insert_builder.builder.dimensions import dimension_fields
 
 logger = logging.getLogger(__name__)
+
+
+def _clear_page_number(session, order) -> None:
+    """tblOrder has several active triggers (confirmed via
+    tools/inspect_triggers.py — trigUpdatePageNumber among them), which make
+    the UPDATE's reported row count unreliable. A plain ORM attribute
+    assignment (order.PageNumber = None) makes SQLAlchemy verify that
+    rowcount on flush and raise StaleDataError when it doesn't match, even
+    though the row genuinely updated. An explicit Core-style UPDATE skips
+    that check entirely; __dict__ is set directly after so the in-memory
+    object stays consistent without re-marking it dirty for flush."""
+    session.execute(update(TblOrder).where(TblOrder.OrderID == order.OrderID).values(PageNumber=None))
+    order.__dict__["PageNumber"] = None
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +66,7 @@ def prepare_journal_orders(
     prepared = []
     for i, order in enumerate(orders, start=1):
         logger.info("Preparing order %d of %d: %s", i, len(orders), order.UserInvoiceNumber)
-        order.PageNumber = None
+        _clear_page_number(session, order)
 
         document_filename = _retrieve_order_indd(local_fs, order, scratch_dir, file_ads_by_region, file_ads_by_format)
         if document_filename is None:
@@ -150,7 +163,7 @@ def prepare_handbook_orders(session: Session, local_fs, subdistribution) -> list
             order_id = None
         else:
             logger.info("Preparing order %d of %d: %s", i, len(subs), order.UserInvoiceNumber)
-            order.PageNumber = None
+            _clear_page_number(session, order)
             document_path = _retrieve_order_jpg(local_fs, order)
             dimension = order.advertisement_size_dimension
             invoice_number = order.UserInvoiceNumber
