@@ -58,13 +58,27 @@
     }
 
     function processJob(file) {
+        // parseJob() and the rename() result used to be outside this try
+        // block. On production-bak, one job file failed to open right after
+        // rename (cause unconfirmed — possibly a transient lock), threw
+        // uncaught, and silently disabled this entire idle task for the
+        // rest of the InDesign session: it stayed registered
+        // (idleTasks.itemByName(...).isValid kept reporting true) but never
+        // fired again. Confirmed via manual reproduction, 2026-11-23.
+        // Everything that can throw must now be inside this try, so a single
+        // bad job can never take down the whole bridge.
         var runningName = file.name.replace(/\.job$/i, ".running");
-        file.rename(runningName);
-
-        var runningFile = new File(queue.fsName + "/" + runningName);
-        var job = parseJob(runningFile);
+        var failedName = runningName.replace(/\.running$/i, ".failed");
+        var job = null;
 
         try {
+            if (!file.rename(runningName)) {
+                throw new Error("Unable to rename job file to " + runningName);
+            }
+
+            var runningFile = new File(queue.fsName + "/" + runningName);
+            job = parseJob(runningFile);
+
             if (!job.script) {
                 throw new Error("Job is missing script path");
             }
@@ -78,15 +92,35 @@
             writeStatus(job.status, true, "");
             runningFile.remove();
         } catch (error) {
-            writeStatus(job.status, false, error);
-            runningFile.rename(runningName.replace(/\.running$/i, ".failed"));
+            if (job && job.status) {
+                writeStatus(job.status, false, error);
+            } else {
+                // job.status isn't known because parseJob() itself failed —
+                // fall back to a file next to the job so the failure is
+                // still discoverable instead of silently vanishing.
+                writeStatus(queue.fsName + "/" + failedName + ".error", false, error);
+            }
+
+            var stuckFile = new File(queue.fsName + "/" + runningName);
+            if (stuckFile.exists) {
+                stuckFile.rename(failedName);
+            } else {
+                file.rename(failedName);
+            }
         }
     }
 
     function poll() {
         var jobs = queue.getFiles("*.job");
         for (var i = 0; i < jobs.length; i++) {
-            processJob(jobs[i]);
+            try {
+                processJob(jobs[i]);
+            } catch (error) {
+                // Last-resort guard — processJob() already handles its own
+                // errors, but nothing here may ever throw uncaught, since an
+                // uncaught exception in an idle-task callback is exactly
+                // what silently killed this task before.
+            }
         }
     }
 
