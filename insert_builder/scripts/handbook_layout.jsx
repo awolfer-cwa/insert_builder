@@ -169,11 +169,15 @@ LayoutState.prototype.insertOrder = function (order) {
 };
 
 function run() {
-    var job = readJob();
+    var job;
     var doc;
     var result = { ok: false, error: null, placed_orders: [], unplaced_indexes: [] };
 
     try {
+        // See journal_layout.jsx for why readJob() must be inside this try —
+        // an exception escaping run() entirely (not just caught by the
+        // bridge downstream) appears to destabilize InDesign's idle task.
+        job = readJob();
         doc = app.open(new File(job.template_path));
         setTags(doc, job.tags);
 

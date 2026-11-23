@@ -306,11 +306,21 @@ LayoutState.prototype.setMasterSpreads = function (leftMasterName, rightMasterNa
 };
 
 function run() {
-    var job = readJob();
+    var job;
     var doc;
     var result = { ok: false, error: null, placed_orders: [], unplaced_indexes: [] };
 
     try {
+        // readJob() used to be called before this try block. An uncaught
+        // exception here (confirmed on production-bak, 2026-11-23: "JSON is
+        // undefined" before the json2.jsx polyfill existed) escaped run()
+        // entirely as a genuinely uncaught top-level script error crossing
+        // app.doScript()'s boundary — not just an exception the bridge's own
+        // try/catch sees downstream. That appears to be what silently
+        // destabilizes InDesign's idle task afterward, even though the
+        // bridge's own error handling looked correct. Nothing in run() may
+        // ever throw outside this try again.
+        job = readJob();
         doc = app.open(new File(job.template_path));
         setTags(doc, job.tags);
 
