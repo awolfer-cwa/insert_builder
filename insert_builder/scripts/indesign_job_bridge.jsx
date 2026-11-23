@@ -58,26 +58,25 @@
     }
 
     function processJob(file) {
-        // parseJob() and the rename() result used to be outside this try
-        // block. On production-bak, one job file failed to open right after
-        // rename (cause unconfirmed — possibly a transient lock), threw
-        // uncaught, and silently disabled this entire idle task for the
-        // rest of the InDesign session: it stayed registered
-        // (idleTasks.itemByName(...).isValid kept reporting true) but never
-        // fired again. Confirmed via manual reproduction, 2026-11-23.
-        // Everything that can throw must now be inside this try, so a single
-        // bad job can never take down the whole bridge.
-        var runningName = file.name.replace(/\.job$/i, ".running");
-        var failedName = runningName.replace(/\.running$/i, ".failed");
+        // Reproduced on production-bak, 2026-11-23, 100% repeatable: the
+        // previous version renamed file -> .running, then built a BRAND NEW
+        // File object from a hand-concatenated path (queue.fsName + "/" +
+        // name) to reopen it — that reopen failed every single time, for
+        // every job, regardless of InDesign focus/idle state. queue.fsName
+        // is a backslash-style native Windows path; appending "/" onto it
+        // mixes separator styles in one string, which this ExtendScript
+        // engine's File constructor does not resolve back to the real file.
+        //
+        // Fix: never reconstruct a File object for a file we already hold a
+        // reference to. Parse the job while `file` still has its original
+        // name (no rename involved yet), then reuse the same `file` object
+        // for every later operation — rename/remove on an existing object is
+        // safe; rebuilding its path from a string is what was broken.
+        var originalName = file.name;
         var job = null;
 
         try {
-            if (!file.rename(runningName)) {
-                throw new Error("Unable to rename job file to " + runningName);
-            }
-
-            var runningFile = new File(queue.fsName + "/" + runningName);
-            job = parseJob(runningFile);
+            job = parseJob(file);
 
             if (!job.script) {
                 throw new Error("Job is missing script path");
@@ -88,9 +87,16 @@
                 throw new Error("Script does not exist: " + job.script);
             }
 
+            // Claim the job so a second poll tick can't double-process it
+            // while doScript() is running. If the rename itself fails, we
+            // still attempt the run rather than losing the job entirely —
+            // Python only ever queues one job per distribution at a time, so
+            // double-processing isn't a realistic risk in practice.
+            file.rename(originalName.replace(/\.job$/i, ".running"));
+
             app.doScript(script, ScriptLanguage.JAVASCRIPT);
             writeStatus(job.status, true, "");
-            runningFile.remove();
+            file.remove();
         } catch (error) {
             if (job && job.status) {
                 writeStatus(job.status, false, error);
@@ -98,14 +104,15 @@
                 // job.status isn't known because parseJob() itself failed —
                 // fall back to a file next to the job so the failure is
                 // still discoverable instead of silently vanishing.
-                writeStatus(queue.fsName + "/" + failedName + ".error", false, error);
+                writeStatus(queue + "/" + originalName + ".error", false, error);
             }
 
-            var stuckFile = new File(queue.fsName + "/" + runningName);
-            if (stuckFile.exists) {
-                stuckFile.rename(failedName);
-            } else {
-                file.rename(failedName);
+            try {
+                if (file.exists) {
+                    file.rename(originalName.replace(/\.(job|running)$/i, ".failed"));
+                }
+            } catch (renameError) {
+                // Nothing more we can do here — already logged via writeStatus above.
             }
         }
     }
