@@ -12,6 +12,8 @@
 // verified against a real InDesign scripting session before trusting this
 // in production.
 
+#include "json2.jsx"
+
 var JOB_PATH = "C:/carma/storage/insert_builder/journal_job.json";
 var RESULT_PATH = "C:/carma/storage/insert_builder/journal_result.json";
 

@@ -3,6 +3,8 @@
 // in, so job/result paths are fixed; not independently tested against a
 // real InDesign install.
 
+#include "json2.jsx"
+
 var JOB_PATH = "C:/carma/storage/insert_builder/handbook_job.json";
 var RESULT_PATH = "C:/carma/storage/insert_builder/handbook_result.json";
 
