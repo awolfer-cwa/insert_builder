@@ -1,13 +1,16 @@
 // Install this file once in InDesign's Startup Scripts folder, then restart InDesign.
 // It polls C:\carma\indesign_bridge\queue for .job files written by Python.
 //
-// Vendored from carma_controller/carma_controller/assets/indesign_job_bridge.jsx —
-// production-insertbuilder is a standalone project with its own venv, so it
-// carries its own copy rather than depending on that repo. Must stay
-// byte-for-byte identical to the carma_controller original: both
-// insert_builder and template_builder/ad_filer queue jobs against the same
-// C:\carma\indesign_bridge\queue, watched by whichever copy of this file is
-// actually installed.
+// Originally vendored from carma_controller/carma_controller/assets/
+// indesign_job_bridge.jsx, which used an app.idleTasks + ON_IDLE listener
+// instead of the permanent loop below. That mechanism was confirmed
+// non-functional on production-bak, 2026-11-24 (direct heartbeat-logging
+// test: zero ON_IDLE invocations after 30+ seconds of InDesign sitting idle
+// on a fresh launch), so this file has intentionally diverged from the
+// carma_controller original — worth checking whether template_builder/
+// ad_filer, which still use the old idle-task version, actually work either.
+// Both still watch the same C:\carma\indesign_bridge\queue, so whichever
+// copy is installed in Startup Scripts just needs to be this fixed version.
 (function () {
     // Confirmed on production-bak, 2026-11-24: InDesign shows a blocking,
     // modal, native dialog ("An attached script generated the following
@@ -22,7 +25,6 @@
     // execution.
     app.scriptPreferences.userInteractionLevel = UserInteractionLevels.NEVER_INTERACT;
 
-    var bridgeName = "carma_indesign_job_bridge";
     var root = new Folder("C:/carma/indesign_bridge");
     var queue = new Folder(root.fsName + "/queue");
     var results = new Folder(root.fsName + "/results");
@@ -158,11 +160,19 @@
         }
     }
 
-    var existing = app.idleTasks.itemByName(bridgeName);
-    if (existing.isValid) {
-        existing.remove();
+    // ON_IDLE never actually fires in this InDesign installation — confirmed
+    // via the heartbeat-logging diagnostic above, 2026-11-24: zero
+    // invocations after 30+ seconds of InDesign sitting idle right after a
+    // fresh launch. Startup Scripts themselves DO run reliably (this file's
+    // own setup code has always executed, confirmed via
+    // idleTasks.itemByName(...).isValid reporting true every time), so
+    // instead of registering a callback that never gets invoked, this loops
+    // forever itself, right here, checking the queue directly every second.
+    // This keeps InDesign's UI thread permanently busy — acceptable because
+    // this machine's InDesign exists solely to run this automation
+    // unattended, not for interactive use.
+    while (true) {
+        poll();
+        $.sleep(1000);
     }
-
-    var task = app.idleTasks.add({ name: bridgeName, sleep: 1000 });
-    task.addEventListener(IdleEvent.ON_IDLE, poll);
 }());
