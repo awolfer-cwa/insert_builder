@@ -328,7 +328,22 @@ function run() {
         // bridge's own error handling looked correct. Nothing in run() may
         // ever throw outside this try again.
         job = readJob();
-        doc = app.open(new File(job.template_path));
+
+        // Diagnostic, 2026-11-24: app.open() failed with just the bare
+        // message "open" on production-bak and the scratch directory was
+        // already gone by the time we could inspect it (Python's own
+        // cleanup runs the moment bridge.run_script() returns). Capture the
+        // file's actual state up front so a repeat failure is debuggable
+        // without racing that cleanup.
+        var templateFile = new File(job.template_path);
+        if (!templateFile.exists) {
+            throw new Error("Template file does not exist: " + job.template_path);
+        }
+        if (templateFile.length === 0) {
+            throw new Error("Template file is empty (0 bytes): " + job.template_path);
+        }
+
+        doc = app.open(templateFile);
         setTags(doc, job.tags);
 
         var state = new LayoutState(doc, job.page_x_size, job.page_y_size);
