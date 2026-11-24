@@ -131,6 +131,20 @@
     }
 
     function poll() {
+        // Direct proof-of-invocation diagnostic, 2026-11-24 — every other
+        // signal (idleTasks.itemByName(...).isValid, job file states) has
+        // been ambiguous or misleading throughout today's testing. This
+        // writes unconditionally, before anything else, every single time
+        // poll() is actually called, independent of whether there's a job
+        // to process. Remove once the automatic-trigger question is settled.
+        try {
+            var heartbeat = new File(root.fsName + "/heartbeat.log");
+            heartbeat.encoding = "UTF-8";
+            heartbeat.open("a");
+            heartbeat.writeln(new Date().toString());
+            heartbeat.close();
+        } catch (hbError) {}
+
         var jobs = queue.getFiles("*.job");
         for (var i = 0; i < jobs.length; i++) {
             try {
