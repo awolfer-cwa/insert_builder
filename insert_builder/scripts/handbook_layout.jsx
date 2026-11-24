@@ -173,6 +173,10 @@ function run() {
     var doc;
     var result = { ok: false, error: null, placed_orders: [], unplaced_indexes: [] };
 
+    // Defense in depth — see journal_layout.jsx / indesign_job_bridge.jsx
+    // for why.
+    app.scriptPreferences.userInteractionLevel = UserInteractionLevels.NEVER_INTERACT;
+
     try {
         // See journal_layout.jsx for why readJob() must be inside this try —
         // an exception escaping run() entirely (not just caught by the

@@ -310,6 +310,13 @@ function run() {
     var doc;
     var result = { ok: false, error: null, placed_orders: [], unplaced_indexes: [] };
 
+    // Defense in depth — indesign_job_bridge.jsx already sets this once at
+    // InDesign startup, but this script does real document/export work that
+    // could independently trigger InDesign's blocking "disable this event
+    // handler?" dialog (see indesign_job_bridge.jsx for the full story), so
+    // set it again here rather than assume it's still in effect.
+    app.scriptPreferences.userInteractionLevel = UserInteractionLevels.NEVER_INTERACT;
+
     try {
         // readJob() used to be called before this try block. An uncaught
         // exception here (confirmed on production-bak, 2026-11-23: "JSON is

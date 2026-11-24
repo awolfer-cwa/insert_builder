@@ -9,6 +9,19 @@
 // C:\carma\indesign_bridge\queue, watched by whichever copy of this file is
 // actually installed.
 (function () {
+    // Confirmed on production-bak, 2026-11-24: InDesign shows a blocking,
+    // modal, native dialog ("An attached script generated the following
+    // error... Do you want to disable this event handler?") whenever an
+    // idle task's callback hits certain errors — entirely separate from any
+    // JS try/catch in our own code. While that dialog sits on screen
+    // (possibly behind other windows, invisible to an unattended run),
+    // InDesign's whole event loop is frozen: no further idle ticks, no
+    // further doScript() calls, nothing — which is what silently killed
+    // every previous attempt to get this bridge working unattended. This is
+    // the documented way to suppress that class of dialog during scripted
+    // execution.
+    app.scriptPreferences.userInteractionLevel = UserInteractionLevels.NEVER_INTERACT;
+
     var bridgeName = "carma_indesign_job_bridge";
     var root = new Folder("C:/carma/indesign_bridge");
     var queue = new Folder(root.fsName + "/queue");
