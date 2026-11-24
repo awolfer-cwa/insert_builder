@@ -23,6 +23,7 @@ def build_journal(
     copy-paste error forward."""
     scratch_dir = Path(settings.storage_path) / f"Distribution {distribution.DistributionID}"
     scratch_dir.mkdir(parents=True, exist_ok=True)
+    succeeded = False
 
     try:
         template_path = _retrieve_template(local_fs, distribution, scratch_dir)
@@ -34,6 +35,7 @@ def build_journal(
         )
         logger.info("There are %d orders ready to be laid out", len(orders))
         if not orders:
+            succeeded = True
             return True, None
 
         insert_dir = local_fs.create_remote_insert_directory(distribution.publication.Name, distribution.edition.Name)
@@ -81,9 +83,15 @@ def build_journal(
 
         apply_page_numbers(session, orders, result)
         distribution.InDesignCreateDate = datetime.now()
+        succeeded = True
         return True, None
     finally:
-        local_fs.delete_local_directory(scratch_dir)
+        # Only clean up on success — a failed run's scratch directory
+        # (downloaded template, placed order artwork) is exactly what's
+        # needed to debug the failure, and deleting it immediately made a
+        # real production-bak failure undebuggable (confirmed 2026-11-24).
+        if succeeded:
+            local_fs.delete_local_directory(scratch_dir)
 
 
 def _retrieve_template(local_fs, distribution, scratch_dir: Path) -> Path | None:

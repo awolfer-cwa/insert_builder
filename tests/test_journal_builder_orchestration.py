@@ -102,6 +102,7 @@ def test_build_journal_success_path_applies_page_numbers(tenant_session, tmp_pat
     assert error is None
     assert applied["result"]["placed_orders"][0]["page_name"] == "3"
     assert distribution.InDesignCreateDate is not None
+    local_fs.delete_local_directory.assert_called_once()
 
 
 def test_build_journal_failure_path_returns_error_without_applying_page_numbers(tenant_session, tmp_path, monkeypatch):
@@ -135,7 +136,11 @@ def test_build_journal_failure_path_returns_error_without_applying_page_numbers(
     assert distribution.InDesignCreateDate is None
 
 
-def test_build_journal_always_cleans_up_scratch_dir(tenant_session, tmp_path, monkeypatch):
+def test_build_journal_failure_does_not_clean_up_scratch_dir(tenant_session, tmp_path, monkeypatch):
+    # Changed 2026-11-24: a failed run's scratch directory (downloaded
+    # template, placed order artwork) is exactly what's needed to debug the
+    # failure — deleting it unconditionally made a real production-bak
+    # failure undebuggable. Only successful runs clean up after themselves.
     distribution = _fixture(tenant_session)
     local_fs, _ = _local_fs_stub(tmp_path)
     local_fs.find_file.return_value = "Ad_Insert.indt"
@@ -149,4 +154,4 @@ def test_build_journal_always_cleans_up_scratch_dir(tenant_session, tmp_path, mo
     except RuntimeError:
         pass
 
-    local_fs.delete_local_directory.assert_called_once()
+    local_fs.delete_local_directory.assert_not_called()
