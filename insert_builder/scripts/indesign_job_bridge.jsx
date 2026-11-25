@@ -160,19 +160,15 @@
         }
     }
 
-    // ON_IDLE never actually fires in this InDesign installation — confirmed
-    // via the heartbeat-logging diagnostic above, 2026-11-24: zero
-    // invocations after 30+ seconds of InDesign sitting idle right after a
-    // fresh launch. Startup Scripts themselves DO run reliably (this file's
-    // own setup code has always executed, confirmed via
-    // idleTasks.itemByName(...).isValid reporting true every time), so
-    // instead of registering a callback that never gets invoked, this loops
-    // forever itself, right here, checking the queue directly every second.
-    // This keeps InDesign's UI thread permanently busy — acceptable because
-    // this machine's InDesign exists solely to run this automation
-    // unattended, not for interactive use.
-    while (true) {
-        poll();
-        $.sleep(1000);
-    }
+    // TEMPORARY, 2026-11-24/26: the permanent while(true) loop that used to
+    // be here fixed triggering (ON_IDLE never fires at all — confirmed via
+    // heartbeat-logging) but broke app.open() entirely: manually
+    // double-clicking a template file in Explorer did nothing while this
+    // loop was running, meaning the tight $.sleep() loop never yields to
+    // Windows' message pump, starving InDesign of whatever it needs to
+    // actually create a document window. Testing whether a single bounded
+    // run (no loop at all) can open a document — if so, the real design is
+    // Python restarting InDesign per cycle so the Startup Script runs once
+    // and finishes, rather than looping forever.
+    poll();
 }());
