@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     storage_path: str = "C:\\carma\\storage\\insert_builder"
     remote_path: str = "C:\\Dropbox"
+    indesign_exe_path: str = "C:\\Program Files\\Adobe\\Adobe InDesign 2025\\InDesign.exe"
 
     developer_email: str
     from_email: str = "insertbuilder@cwaustral.com.au"

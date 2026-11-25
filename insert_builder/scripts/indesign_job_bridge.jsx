@@ -1,18 +1,17 @@
-#targetengine "carma_indesign_bridge";
-
 // Install this file once in InDesign's Startup Scripts folder, then restart InDesign.
-// It polls C:\carma\indesign_bridge\queue for .job files written by Python.
+// It runs once at launch, processing whatever's already sitting in
+// C:\carma\indesign_bridge\queue — no persistent idle task involved.
 //
-// TESTING, 2026-11-26: every previous ON_IDLE test registered the idle task
-// in the default "main" engine (confirmed — InDesign's own error dialog for
-// a broken test task explicitly said "Engine: main"), and ON_IDLE never
-// fired there even once in 30+ seconds of heartbeat-logging. production-
-// templatebuilder's own startup_watcher.jsx (a sibling Python port in this
-// same codebase) uses #targetengine to run its idle task in a separate,
-// named, persistent engine instead — untested here until now. If ON_IDLE
-// fires reliably in a named engine where it didn't in main, this is the
-// real fix, and template_builder's own version may have been silently
-// broken all along for the identical reason this file was.
+// FINAL DESIGN, 2026-11-26: app.idleTasks + ON_IDLE never fires in the
+// default engine, and even #targetengine (a separate named engine) fired
+// reliably for 12+ minutes on one test then zero times on an identical
+// fresh restart — genuinely flaky, not fixable with more script changes.
+// The one thing proven 100% reliable all day, every single time, is that
+// this Startup Script itself runs fully on every InDesign launch. So Python
+// (insert_builder/indesign/bridge.py's _restart_indesign()) now restarts
+// InDesign before every single script trigger, and this just does one
+// bounded poll() pass at launch instead of registering any kind of
+// persistent listener.
 (function () {
     // Confirmed on production-bak, 2026-11-24: InDesign shows a blocking,
     // modal, native dialog ("An attached script generated the following
@@ -135,20 +134,6 @@
     }
 
     function poll() {
-        // Direct proof-of-invocation diagnostic, 2026-11-24 — every other
-        // signal (idleTasks.itemByName(...).isValid, job file states) has
-        // been ambiguous or misleading throughout today's testing. This
-        // writes unconditionally, before anything else, every single time
-        // poll() is actually called, independent of whether there's a job
-        // to process. Remove once the automatic-trigger question is settled.
-        try {
-            var heartbeat = new File(root.fsName + "/heartbeat.log");
-            heartbeat.encoding = "UTF-8";
-            heartbeat.open("a");
-            heartbeat.writeln(new Date().toString());
-            heartbeat.close();
-        } catch (hbError) {}
-
         var jobs = queue.getFiles("*.job");
         for (var i = 0; i < jobs.length; i++) {
             try {
@@ -162,12 +147,5 @@
         }
     }
 
-    var bridgeName = "carma_indesign_job_bridge";
-    var existing = app.idleTasks.itemByName(bridgeName);
-    if (existing.isValid) {
-        existing.remove();
-    }
-
-    var task = app.idleTasks.add({ name: bridgeName, sleep: 1000 });
-    task.addEventListener(IdleEvent.ON_IDLE, poll);
+    poll();
 }());

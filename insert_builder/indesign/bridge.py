@@ -1,6 +1,8 @@
+import subprocess
 import time
 from pathlib import Path
 from uuid import uuid4
+from insert_builder.config.settings import settings
 
 # Vendored from carma_controller/carma_controller/indesign.py rather than
 # imported as a cross-repo dependency — production-insertbuilder is a
@@ -16,6 +18,22 @@ SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
 
 class InDesignScriptError(RuntimeError):
     pass
+
+
+def _restart_indesign() -> None:
+    """Confirmed on production-bak, 2026-11-26: InDesign's app.idleTasks +
+    ON_IDLE never fires in the default engine, and even with #targetengine
+    (a separate named engine) it fired reliably for 12+ minutes on one test
+    then zero times on an identical fresh restart — genuinely flaky,
+    unrelated to any of our own script bugs. The one thing proven 100%
+    reliable every single time all day is that InDesign's Startup Script
+    runs fully on every launch. So instead of depending on a persistent
+    background listener, every run_script() call restarts InDesign fresh and
+    lets the Startup Script's single bounded poll() pick up the job that's
+    already sitting in the queue by the time it launches."""
+    subprocess.run(["taskkill", "/F", "/IM", "InDesign.exe"], capture_output=True)
+    time.sleep(2)
+    subprocess.Popen([settings.indesign_exe_path])
 
 
 def run_script(script_path: Path, result_path: Path | None = None, timeout: int = 120) -> dict:
@@ -44,6 +62,8 @@ def run_script(script_path: Path, result_path: Path | None = None, timeout: int 
         ]),
         encoding="utf-8",
     )
+
+    _restart_indesign()
 
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -74,9 +94,3 @@ def _read_status(status_path: Path) -> dict:
             key, value = line.split("=", 1)
             status[key] = value
     return status
-
-
-def close_orphaned_documents(timeout: int = 60) -> None:
-    """Feature #3 — queues cleanup.jsx to close any document InDesign still
-    has open from a previous failed build, before the next run starts."""
-    run_script(SCRIPTS_DIR / "cleanup.jsx", timeout=timeout)

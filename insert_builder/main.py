@@ -20,7 +20,6 @@ from insert_builder.filesystem.local import LocalFileHandler
 from insert_builder.builder.journal_builder import build_journal
 from insert_builder.builder.handbook_builder import build_handbook
 from insert_builder.email.report import safe_send_email
-from insert_builder.indesign.bridge import close_orphaned_documents
 
 PID_FILE = Path(r"C:\carma\run\insert_builder.pid")
 STATUS_FILE = Path(r"C:\carma\run\insert_builder_status.json")
@@ -81,14 +80,10 @@ def run() -> None:
         logger.info("-" * 50)
         logger.info("Insert Builder started")
 
-        try:
-            close_orphaned_documents()
-        except Exception as e:
-            # Best-effort housekeeping — a missing/not-yet-installed bridge
-            # must not block the DB-side work below. Confirmed needed by a
-            # real run on production-bak where InDesign/the bridge wasn't
-            # set up yet: this used to abort the entire run right here.
-            logger.warning("Could not clean up orphaned InDesign documents: %s", e)
+        # No separate orphaned-document cleanup needed — every
+        # bridge.run_script() call now restarts InDesign from scratch
+        # (_restart_indesign(), added 2026-11-26), which already discards
+        # any leftover document state from a previous failed run.
 
         provision_engine = get_engine(settings)
         with Session(provision_engine) as provision_session:
