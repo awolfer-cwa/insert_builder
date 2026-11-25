@@ -1,16 +1,18 @@
+#targetengine "carma_indesign_bridge";
+
 // Install this file once in InDesign's Startup Scripts folder, then restart InDesign.
 // It polls C:\carma\indesign_bridge\queue for .job files written by Python.
 //
-// Originally vendored from carma_controller/carma_controller/assets/
-// indesign_job_bridge.jsx, which used an app.idleTasks + ON_IDLE listener
-// instead of the permanent loop below. That mechanism was confirmed
-// non-functional on production-bak, 2026-11-24 (direct heartbeat-logging
-// test: zero ON_IDLE invocations after 30+ seconds of InDesign sitting idle
-// on a fresh launch), so this file has intentionally diverged from the
-// carma_controller original — worth checking whether template_builder/
-// ad_filer, which still use the old idle-task version, actually work either.
-// Both still watch the same C:\carma\indesign_bridge\queue, so whichever
-// copy is installed in Startup Scripts just needs to be this fixed version.
+// TESTING, 2026-11-26: every previous ON_IDLE test registered the idle task
+// in the default "main" engine (confirmed — InDesign's own error dialog for
+// a broken test task explicitly said "Engine: main"), and ON_IDLE never
+// fired there even once in 30+ seconds of heartbeat-logging. production-
+// templatebuilder's own startup_watcher.jsx (a sibling Python port in this
+// same codebase) uses #targetengine to run its idle task in a separate,
+// named, persistent engine instead — untested here until now. If ON_IDLE
+// fires reliably in a named engine where it didn't in main, this is the
+// real fix, and template_builder's own version may have been silently
+// broken all along for the identical reason this file was.
 (function () {
     // Confirmed on production-bak, 2026-11-24: InDesign shows a blocking,
     // modal, native dialog ("An attached script generated the following
@@ -160,15 +162,12 @@
         }
     }
 
-    // TEMPORARY, 2026-11-24/26: the permanent while(true) loop that used to
-    // be here fixed triggering (ON_IDLE never fires at all — confirmed via
-    // heartbeat-logging) but broke app.open() entirely: manually
-    // double-clicking a template file in Explorer did nothing while this
-    // loop was running, meaning the tight $.sleep() loop never yields to
-    // Windows' message pump, starving InDesign of whatever it needs to
-    // actually create a document window. Testing whether a single bounded
-    // run (no loop at all) can open a document — if so, the real design is
-    // Python restarting InDesign per cycle so the Startup Script runs once
-    // and finishes, rather than looping forever.
-    poll();
+    var bridgeName = "carma_indesign_job_bridge";
+    var existing = app.idleTasks.itemByName(bridgeName);
+    if (existing.isValid) {
+        existing.remove();
+    }
+
+    var task = app.idleTasks.add({ name: bridgeName, sleep: 1000 });
+    task.addEventListener(IdleEvent.ON_IDLE, poll);
 }());
