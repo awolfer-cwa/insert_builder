@@ -17,7 +17,7 @@ from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parent.parent / "insert_builder" / "scripts" / "indesign_job_bridge.jsx"
 STARTUP_SCRIPTS_DIR = Path(
-    r"C:\Users\Admin\AppData\Roaming\Adobe\InDesign\Version 20.0\en_US\Scripts\startup scripts"
+    r"C:\Users\Admin\AppData\Roaming\Adobe\InDesign\Version 22.0\en_US\Scripts\startup scripts"
 )
 QUEUE_DIR = Path(r"C:\carma\indesign_bridge\queue")
 
