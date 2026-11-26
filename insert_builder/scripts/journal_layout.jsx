@@ -241,23 +241,8 @@ LayoutState.prototype.fillRemainingSpace = function (catalog) {
     }
 
     var loopCount = 0;
-    // TEMPORARY diagnostic, 2026-11-27 — remove once we've confirmed whether
-    // this loop is making real progress or still stuck after the >= fix.
-    var progressFile = new File("C:/carma/storage/insert_builder/journal_progress.log");
-    progressFile.encoding = "UTF-8";
-    progressFile.open("w");
-    progressFile.close();
     while (true) {
         loopCount += 1;
-        if (loopCount % 5 === 0 || loopCount === 1) {
-            progressFile.open("a");
-            progressFile.writeln(
-                "loop=" + loopCount + " placed=" + placements.length +
-                " page=" + this.currentPageIndex + " pageYPos=" + this.pageYPosition +
-                " pageYMin=" + this.pageYPositionMin + " pageXMax=" + this.pageXPositionMax
-            );
-            progressFile.close();
-        }
         if (loopCount > 10000) {
             // Defense in depth, added 2026-11-27 after this loop hung
             // indefinitely on production-bak (runaway CPU, no termination)
