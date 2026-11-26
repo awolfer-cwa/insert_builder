@@ -153,7 +153,13 @@ LayoutState.prototype.incrementAdPosition = function (order) {
 LayoutState.prototype.insertOrder = function (order) {
     this.currentPage.place(new File(order.document_path), [this.pageXPosition, this.pageYPosition]);
 
-    if (this.pageXPosition + order.width === this.pageXMax) {
+    if (this.pageXPosition + order.width >= this.pageXMax) {
+        // Changed 2026-11-27, mirroring the same fix in journal_layout.jsx:
+        // exact equality almost never holds for real ad sizes, so this never
+        // reliably detected a full row. Harmless for handbook today (no
+        // unbounded loop depends on it), but it's the same latent row-full
+        // detection bug ported from journal_layout_task.rb's Ruby original —
+        // fixed here too before handbook's first live test.
         this.pageYPositionMin = this.pageYPosition + order.height;
     } else {
         var newMax = this.pageXPosition + order.width;
