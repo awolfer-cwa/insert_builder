@@ -160,7 +160,15 @@ LayoutState.prototype.incrementAdPosition = function (order) {
 LayoutState.prototype.insertOrder = function (order) {
     var placed = this.currentPage.place(new File(order.document_path), [this.pageXPosition, this.pageYPosition]);
 
-    if (this.pageXPosition + order.width === this.pageXMax) {
+    if (this.pageXPosition + order.width >= this.pageXMax) {
+        // Changed 2026-11-27: exact equality here almost never holds for
+        // real filler sizes (floating-point page coordinates rarely land on
+        // pageXMax precisely), so pageYPositionMin stayed stuck at 0 and
+        // fillRemainingSpace's while(true) loop kept resetting to the exact
+        // same row forever instead of ever advancing downward — a genuine
+        // infinite loop, confirmed on production-bak via runaway CPU with no
+        // termination. >= treats "reached or passed the right edge" as the
+        // row being full, which is what this was always meant to detect.
         this.pageYPositionMin = this.pageYPosition + order.height;
     } else {
         var newMax = this.pageXPosition + order.width;
@@ -227,7 +235,19 @@ LayoutState.prototype.fillRemainingSpace = function (catalog) {
         return placements;
     }
 
+    var loopCount = 0;
     while (true) {
+        loopCount += 1;
+        if (loopCount > 10000) {
+            // Defense in depth, added 2026-11-27 after this loop hung
+            // indefinitely on production-bak (runaway CPU, no termination)
+            // due to a separate bug in insertOrder's row-full detection.
+            // That bug is fixed, but incrementAdPosition already caps its
+            // own retry loop at 20 iterations for the same reason — this
+            // loop never had an equivalent cap.
+            throw new Error("fillRemainingSpace loop exceeded 10000 iterations");
+        }
+
         if (this.currentPage === null) {
             try {
                 this.currentPage = this.incrementPage();
