@@ -160,21 +160,26 @@ LayoutState.prototype.incrementAdPosition = function (order) {
 LayoutState.prototype.insertOrder = function (order) {
     var placed = this.currentPage.place(new File(order.document_path), [this.pageXPosition, this.pageYPosition]);
 
-    if (this.pageXPosition + order.width >= this.pageXMax) {
-        // Changed 2026-11-27: exact equality here almost never holds for
-        // real filler sizes (floating-point page coordinates rarely land on
-        // pageXMax precisely), so pageYPositionMin stayed stuck at 0 and
-        // fillRemainingSpace's while(true) loop kept resetting to the exact
-        // same row forever instead of ever advancing downward — a genuine
-        // infinite loop, confirmed on production-bak via runaway CPU with no
-        // termination. >= treats "reached or passed the right edge" as the
-        // row being full, which is what this was always meant to detect.
-        this.pageYPositionMin = this.pageYPosition + order.height;
-    } else {
-        var newMax = this.pageXPosition + order.width;
-        if (this.pageXPositionMax < newMax) {
-            this.pageXPositionMax = newMax;
-        }
+    // Changed 2026-11-27, second pass: the first fix (>= instead of ===)
+    // only advanced pageYPositionMin when ONE item reached the page's right
+    // edge. That's true for Ruby's real ads (normally full page width, one
+    // per row), but filler items are deliberately narrow — bin-packing tiles
+    // several of them side by side in a row, and none of them individually
+    // reaches the edge. Confirmed on production-bak via live progress
+    // logging: pageYPositionMin stayed frozen and the loop cycled the same
+    // row forever, still never terminating after the first fix. Correct fix
+    // is to track the deepest point ANY item placed in the row reaches, not
+    // just one that happens to hit the edge exactly — this is a strict
+    // superset of the old behavior (a lone full-width item is still just the
+    // max of one item) and also fixes the same latent understatement for
+    // real multi-item rows that incrementYPosition's space check relied on.
+    var newMax = this.pageXPosition + order.width;
+    if (this.pageXPositionMax < newMax) {
+        this.pageXPositionMax = newMax;
+    }
+    var rowBottom = this.pageYPosition + order.height;
+    if (this.pageYPositionMin < rowBottom) {
+        this.pageYPositionMin = rowBottom;
     }
     this.pageYPosition += order.height;
     this.adInFirstRow = false;
