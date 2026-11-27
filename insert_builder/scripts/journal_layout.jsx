@@ -192,6 +192,28 @@ LayoutState.prototype.insertOrder = function (order) {
     return this.currentPage.name;
 };
 
+// Filler-specific placement, added 2026-11-27: unlike insertOrder (which
+// advances pageYPosition by the full item height, correct for Ruby's
+// one-ad-per-row model), items tiled side-by-side in the same row must all
+// share the same Y. Y only moves when fillRemainingSpace explicitly starts a
+// new row (and, via commitPosition, when the first item of that row commits).
+LayoutState.prototype.insertFiller = function (candidate) {
+    this.currentPage.place(new File(candidate.document_path), [this.pageXPosition, this.pageYPosition]);
+
+    var newMax = this.pageXPosition + candidate.width;
+    if (this.pageXPositionMax < newMax) {
+        this.pageXPositionMax = newMax;
+    }
+    var rowBottom = this.pageYPosition + candidate.height;
+    if (this.pageYPositionMin < rowBottom) {
+        this.pageYPositionMin = rowBottom;
+    }
+    this.adInFirstRow = false;
+    this.adInFirstColumn = false;
+
+    return this.currentPage.name;
+};
+
 // --- Filler support — new capability, no Ruby precedent. ---------------
 // Unlike real orders (fixed size, exception-driven column/page retry),
 // fillers are chosen live: try the largest catalog candidate that fits
@@ -221,8 +243,16 @@ LayoutState.prototype.commitPosition = function (candidate) {
     this.pageXPositionMax = this.pageXPositionMax + xSpacing;
     this.pageXPosition = this.pageXPositionMax;
 
-    var ySpacing = this.adInFirstRow ? candidate.starting_page_y_pos : candidate.insert_spacing_y;
-    this.pageYPosition += ySpacing;
+    // Changed 2026-11-27: this used to add ySpacing for EVERY item, which
+    // slowly drags items placed side-by-side in the same row down the page
+    // relative to each other instead of keeping them aligned at the row's Y.
+    // Confirmed on production-bak via the actual exported PDF (fillers
+    // visibly misaligned/drifting). Only the first item of a new row should
+    // push pageYPosition down — every later item in that row shares it.
+    if (this.adInFirstColumn) {
+        var ySpacing = this.adInFirstRow ? candidate.starting_page_y_pos : candidate.insert_spacing_y;
+        this.pageYPosition += ySpacing;
+    }
 };
 
 LayoutState.prototype._firstFit = function (catalog) {
@@ -286,7 +316,7 @@ LayoutState.prototype.fillRemainingSpace = function (catalog) {
         }
 
         this.commitPosition(chosen);
-        var pageName = this.insertOrder(chosen);
+        var pageName = this.insertFiller(chosen);
         placements.push({ size_name: chosen.size_name, page_name: pageName });
     }
 
